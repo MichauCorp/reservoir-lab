@@ -8,3 +8,20 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Data & experiment outputs
+data/
+results/
+*.npy
+*.npz
+*.pkl
+*.h5
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS/editor cruft (harmless to include for cross-platform work)
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
