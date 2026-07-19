@@ -36,17 +36,20 @@ esn = ESN(
 )
 
 
-# 5. Train readout only on training data
+# 5. Train readout only on training data (discard the initial transient)
 
 states = esn.fit(
     train_inputs,
-    train_targets
+    train_targets,
+    washout=100
 )
 
 
-# 6. Predict unseen data
+# 6. Predict unseen data — continue the reservoir state from where
+#    training left off, instead of resetting to zero at the test boundary
 
-pred = esn.predict(test_inputs)
+test_states = esn.run(test_inputs, initial_state=esn.last_state)
+pred = test_states @ esn.W_out
 
 
 # 7. Evaluate
@@ -56,13 +59,13 @@ mse = np.mean((pred - test_targets)**2)
 print(f"Test MSE: {mse}")
 
 
-# 8. Visualize
+# 8. Visualize — use the actual test-period states, not the train states
 
 plot_results(
     test_inputs,
     test_targets,
     pred,
-    states,
+    test_states,
     title="Sine wave generalization",
     save_path="experiments/visuals/sine_generalization.png"
 )

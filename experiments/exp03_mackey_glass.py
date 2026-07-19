@@ -57,19 +57,19 @@ esn = ESN(
 )
 
 
-# 5. Train readout
+# 5. Train readout (discard the initial transient)
 
 states = esn.fit(
     train_inputs,
-    train_targets
+    train_targets,
+    washout=100
 )
 
 
-# 6. Predict unseen data
+# 6. Predict unseen data — continue reservoir state across the train/test boundary
 
-pred = esn.predict(
-    test_inputs
-)
+test_states = esn.run(test_inputs, initial_state=esn.last_state)
+pred = test_states @ esn.W_out
 
 
 # 7. Calculate error
@@ -87,7 +87,7 @@ plot_results(
     test_inputs,
     test_targets,
     pred,
-    states,
+    test_states,
     title="Mackey-Glass prediction",
     save_path="experiments/visuals/mackey_glass.png"
 )

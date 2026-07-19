@@ -6,9 +6,11 @@ from reservoir_lab.visualize import plot_results
 
 # Generate NARMA10 data
 
-def generate_narma10(length):
+def generate_narma10(length, seed=42):
 
-    u = np.random.rand(length, 1) * 0.5
+    rng = np.random.default_rng(seed)
+
+    u = rng.random((length, 1)) * 0.5
     y = np.zeros((length, 1))
 
     for t in range(10, length-1):
@@ -52,17 +54,19 @@ esn = ESN(
 )
 
 
-# 4. Train
+# 4. Train (discard the initial transient)
 
 states = esn.fit(
     train_inputs,
-    train_targets
+    train_targets,
+    washout=100
 )
 
 
-# 5. Predict unseen data
+# 5. Predict unseen data — continue reservoir state from training
 
-pred = esn.predict(test_inputs)
+test_states = esn.run(test_inputs, initial_state=esn.last_state)
+pred = test_states @ esn.W_out
 
 
 # 6. Measure error
@@ -80,7 +84,7 @@ plot_results(
     test_inputs,
     test_targets,
     pred,
-    states,
+    test_states,
     title="NARMA10 prediction",
     save_path="experiments/visuals/narma10.png"
 )

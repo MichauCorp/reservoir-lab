@@ -22,6 +22,11 @@ class ESN:
 
         # Scale reservoir to desired spectral radius
         rho = np.max(np.abs(np.linalg.eigvals(W)))
+        if rho == 0:
+            raise ValueError(
+                "Reservoir matrix has spectral radius 0 (all connections were "
+                "zeroed out by sparsification). Increase sparsity or n_reservoir."
+            )
 
         self.W = W * (spectral_radius / rho)
 
@@ -35,13 +40,25 @@ class ESN:
         # Will be learned later
         self.W_out = None
 
+        # State the reservoir is currently sitting in after the most recent
+        # run()/fit()/predict() call. Lets you continue a sequence across
+        # separate calls (e.g. train then test) instead of always resetting
+        # to zero, which otherwise throws away the reservoir's memory right
+        # at the train/test boundary.
+        self.last_state = np.zeros(n_reservoir)
 
-    def run(self, inputs):
+
+    def run(self, inputs, initial_state=None):
         """
         Run a sequence through the reservoir.
 
         inputs:
             shape = (timesteps, n_inputs)
+
+        initial_state:
+            shape = (n_reservoir,), or None to start from zero.
+            Pass esn.last_state to continue from wherever the reservoir
+            left off after a previous call.
 
         returns:
             states:
@@ -52,8 +69,10 @@ class ESN:
             (len(inputs), self.n_reservoir)
         )
 
-        state = np.zeros(
-            self.n_reservoir
+        state = (
+            np.zeros(self.n_reservoir)
+            if initial_state is None
+            else np.array(initial_state, dtype=float)
         )
 
         for t, u in enumerate(inputs):
@@ -66,11 +85,13 @@ class ESN:
 
             states[t] = state
 
+        self.last_state = state.copy()
+
         return states
 
 
 
-    def fit(self, inputs, targets, reg=1e-6):
+    def fit(self, inputs, targets, reg=1e-6, washout=0):
         """
         Original time-series prediction training.
 
@@ -78,31 +99,46 @@ class ESN:
 
             state(t) -> target(t)
 
+        washout:
+            number of initial timesteps to discard before fitting the
+            readout. The reservoir starts at a zero state and needs a few
+            steps to "forget" that and settle onto the trajectory the input
+            actually drives it towards; including that transient in the
+            regression biases W_out. Doesn't affect the `states` returned.
         """
 
         states = self.run(inputs)
 
+        train_states = states[washout:]
+        train_targets = targets[washout:]
+
         self.W_out = np.linalg.solve(
 
-            states.T @ states
+            train_states.T @ train_states
             +
             reg * np.eye(self.n_reservoir),
 
-            states.T @ targets
+            train_states.T @ train_targets
         )
 
         return states
 
 
 
-    def predict(self, inputs):
+    def predict(self, inputs, initial_state=None):
         """
         Original time-series prediction.
+
+        initial_state:
+            shape = (n_reservoir,), or None to start from zero.
+            Pass esn.last_state (set automatically after fit()) to continue
+            the reservoir seamlessly from training into testing instead of
+            resetting to zero at the test boundary.
 
         Returns output for every timestep.
         """
 
-        return self.run(inputs) @ self.W_out
+        return self.run(inputs, initial_state=initial_state) @ self.W_out
 
 
 
@@ -138,6 +174,8 @@ class ESN:
 
         for sequence in sequences:
 
+            # Each sequence is independent, so this intentionally starts
+            # fresh from a zero state every time (no initial_state passed).
             reservoir_states = self.run(sequence)
 
             # Use the final reservoir state as the sequence representation
