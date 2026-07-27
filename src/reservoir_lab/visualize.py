@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -51,7 +53,9 @@ def plot_results(inputs, targets, pred, states, title="Experiment results",
         plt.savefig(save_path, dpi=120, bbox_inches="tight")
         print(f"Saved plot to {save_path}")
     else:
-        plt.show()
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="FigureCanvasAgg is non-interactive")
+            plt.show()
 
     print(f"MSE: {mse:.6f}")
     return mse
