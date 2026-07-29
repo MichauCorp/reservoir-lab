@@ -78,7 +78,6 @@ def dual_timescale_task(n_steps=1400, interaction=1.0, noise_std=0.35, seed=0):
 
 def mackey_glass_task(length=6000, train_size=4000, tau=17, seed=42):
     beta, gamma, n = 0.2, 0.1, 10
-    rng = np.random.default_rng(seed)
     data = np.ones(length + tau + 1) * 1.2
     for t in range(tau, length + tau):
         delayed = data[t - tau]
@@ -125,7 +124,6 @@ def build_serial_force(u_train, u_test, seed, theta, c, n_reservoir, reg):
     model = SerialPhysicalReservoir(stage1=optical, stage2=acoustic, combine="both", seed=seed)
     train_feats = model.run(u_train)
     test_feats = model.run(u_test, initial_state=model.last_state)
-    readout = RidgeReadout(reg=reg).fit(train_feats, np.zeros((train_feats.shape[0], 1)), washout=50)
     return train_feats, test_feats
 
 
@@ -143,12 +141,15 @@ def build_parallel(u_train, u_test, seed, theta, c, n_reservoir, reg):
     return np.hstack([opt_tr, ac_tr]), np.hstack([opt_te, ac_te])
 
 
-def build_all_optical(u_train, u_test, seed, theta, c, n_reservoir, reg):
+def build_all_optical(u_train, u_test, seed, theta, c, n_reservoir, reg, theta2=3.0):
+    """Two optical stages with decoupled response-time and delay-window.
+    dt=0.02 is fixed (matching exp14's fix) so theta2 controls only the
+    response timescale, not the delay-window size."""
     stage1 = OptoelectronicReservoir(
         n_inputs=1, n_virtual_nodes=n_reservoir, theta=theta, seed=seed
     )
     stage2 = OptoelectronicReservoir(
-        n_inputs=n_reservoir, n_virtual_nodes=n_reservoir, theta=c * 10, seed=seed + 1
+        n_inputs=n_reservoir, n_virtual_nodes=n_reservoir, theta=theta2, dt=0.02, seed=seed + 1
     )
     model = SerialPhysicalReservoir(stage1=stage1, stage2=stage2, combine="both", seed=seed)
     train_feats = model.run(u_train)
@@ -162,6 +163,10 @@ ARCHITECTURES = {
     "all_optical": build_all_optical,
 }
 
+# Hyperparameter grid for all_optical's second stage theta (decoupled via dt=0.02)
+ALL_OPTICAL_THETA2 = [0.5, 3.0, 10.0]
+ALL_OPTICAL_THETA2_QUICK = [0.5, 3.0]
+
 
 # =====================================================================
 # Evaluation with NRMSE metric
@@ -171,8 +176,11 @@ def nrmse(pred, true):
     return np.sqrt(np.mean((pred - true) ** 2, axis=0)) / np.std(true, axis=0)
 
 
-def evaluate_config(builder, u_train, y_train, u_test, y_test, seed, theta, c, n_res, reg):
-    train_feats, test_feats = builder(u_train, u_test, seed, theta, c, n_res, reg)
+def evaluate_config(builder, u_train, y_train, u_test, y_test, seed, theta, c, n_res, reg, theta2=None):
+    if theta2 is not None:
+        train_feats, test_feats = builder(u_train, u_test, seed, theta, c, n_res, reg, theta2=theta2)
+    else:
+        train_feats, test_feats = builder(u_train, u_test, seed, theta, c, n_res, reg)
     readout = RidgeReadout(reg=reg).fit(train_feats, y_train, washout=100)
     pred = readout.predict(test_feats)
     return nrmse(pred, y_test)
@@ -206,14 +214,24 @@ def main():
         seeds_list = SEEDS
         mode_name = "FULL"
 
+    if args.quick:
+        all_optical_theta2_values = ALL_OPTICAL_THETA2_QUICK
+    else:
+        all_optical_theta2_values = ALL_OPTICAL_THETA2
+
     param_combos = list(itertools.product(
         optical_thetas, acoustic_cs, reservoir_sizes, readout_regs
     ))
-    total_runs = len(param_combos) * len(ARCHITECTURES) * len(TASKS) * n_seeds
-    print(f"Starting hyperparameter sweep [{mode_name} mode]: {total_runs} total configurations")
+    # all_optical has an extra theta2 dimension; count it separately
+    n_ao_combos = len(param_combos) * len(all_optical_theta2_values)
+    n_other_combos = len(param_combos) * 2  # serial_force + parallel
+    total_configs = (n_other_combos + n_ao_combos) * len(TASKS)
+    total_runs = total_configs * n_seeds
+    print(f"Starting hyperparameter sweep [{mode_name} mode]: {total_runs} total runs")
     print(f"  Architectures: {len(ARCHITECTURES)}")
     print(f"  Tasks: {len(TASKS)}")
     print(f"  Parameter combos: {len(param_combos)}")
+    print(f"  All-optical theta2 values: {len(all_optical_theta2_values)}")
     print(f"  Seeds: {n_seeds}")
     print()
 
@@ -221,9 +239,12 @@ def main():
     config_id = 0
 
     for theta, c, n_res, reg in param_combos:
-        for arch_name, builder in ARCHITECTURES.items():
+        # --- serial_force and parallel (no theta2) ---
+        for arch_name in ["serial_force", "parallel"]:
+            builder = ARCHITECTURES[arch_name]
             for task_name, task_fn in TASKS.items():
-                seed_results = []
+                seed_results_slow = []
+                seed_results_fast = []
                 for seed in seeds_list:
                     u_train, y_train, u_test, y_test = task_fn(seed=seed)
                     try:
@@ -231,18 +252,27 @@ def main():
                             builder, u_train, y_train, u_test, y_test,
                             seed, theta, c, n_res, reg
                         )
-                        # Use slow component NRMSE as primary metric
-                        seed_results.append(nrmse_vals[0])
+                        seed_results_slow.append(nrmse_vals[0])
+                        if nrmse_vals.shape[0] > 1:
+                            seed_results_fast.append(nrmse_vals[1])
                     except (np.linalg.LinAlgError, ValueError) as e:
-                        seed_results.append(None)
+                        seed_results_slow.append(None)
+                        seed_results_fast.append(None)
                 
-                # Compute statistics
-                valid_results = [r for r in seed_results if r is not None]
-                if valid_results:
-                    mean_val = np.mean(valid_results)
-                    std_val = np.std(valid_results)
-                    sem_val = std_val / np.sqrt(len(valid_results))
-                    ci_95 = stats.t.interval(0.95, len(valid_results) - 1, loc=mean_val, scale=sem_val)
+                # Compute statistics for primary metric
+                valid_slow = [r for r in seed_results_slow if r is not None]
+                valid_fast = [r for r in seed_results_fast if r is not None]
+                # For dual_timescale, primary = fast target; for others, primary = slow
+                if task_name == "dual_timescale":
+                    primary_results = valid_fast
+                else:
+                    primary_results = valid_slow
+                
+                if primary_results:
+                    mean_val = np.mean(primary_results)
+                    std_val = np.std(primary_results)
+                    sem_val = std_val / np.sqrt(len(primary_results))
+                    ci_95 = stats.t.interval(0.95, len(primary_results) - 1, loc=mean_val, scale=sem_val)
                     ci_width = (ci_95[1] - ci_95[0]) / 2
                 else:
                     mean_val = std_val = ci_width = np.nan
@@ -255,22 +285,81 @@ def main():
                     "acoustic_c": c,
                     "n_reservoir": n_res,
                     "readout_reg": reg,
-                    "nrmse_mean": f"{mean_val:.4f}" if not np.isnan(mean_val) else "FAILED",
+                    "theta2": "N/A",
+                    "nrmse_primary": f"{mean_val:.4f}" if not np.isnan(mean_val) else "FAILED",
+                    "nrmse_slow": f"{np.mean(valid_slow):.4f}" if valid_slow else "FAILED",
+                    "nrmse_fast": f"{np.mean(valid_fast):.4f}" if valid_fast else "N/A",
                     "nrmse_std": f"{std_val:.4f}" if not np.isnan(std_val) else "FAILED",
                     "ci_95": f"{ci_width:.4f}" if not np.isnan(ci_width) else "FAILED",
-                    "n_successful": len(valid_results),
+                    "n_successful": len(primary_results),
                     "n_total": n_seeds,
                 })
+                config_id += 1
+
+        # --- all_optical (has extra theta2 dimension) ---
+        for theta2 in all_optical_theta2_values:
+            builder = ARCHITECTURES["all_optical"]
+            for task_name, task_fn in TASKS.items():
+                seed_results_slow = []
+                seed_results_fast = []
+                for seed in seeds_list:
+                    u_train, y_train, u_test, y_test = task_fn(seed=seed)
+                    try:
+                        nrmse_vals = evaluate_config(
+                            builder, u_train, y_train, u_test, y_test,
+                            seed, theta, c, n_res, reg, theta2=theta2
+                        )
+                        seed_results_slow.append(nrmse_vals[0])
+                        if nrmse_vals.shape[0] > 1:
+                            seed_results_fast.append(nrmse_vals[1])
+                    except (np.linalg.LinAlgError, ValueError) as e:
+                        seed_results_slow.append(None)
+                        seed_results_fast.append(None)
                 
+                valid_slow = [r for r in seed_results_slow if r is not None]
+                valid_fast = [r for r in seed_results_fast if r is not None]
+                if task_name == "dual_timescale":
+                    primary_results = valid_fast
+                else:
+                    primary_results = valid_slow
+                
+                if primary_results:
+                    mean_val = np.mean(primary_results)
+                    std_val = np.std(primary_results)
+                    sem_val = std_val / np.sqrt(len(primary_results))
+                    ci_95 = stats.t.interval(0.95, len(primary_results) - 1, loc=mean_val, scale=sem_val)
+                    ci_width = (ci_95[1] - ci_95[0]) / 2
+                else:
+                    mean_val = std_val = ci_width = np.nan
+
+                results.append({
+                    "config_id": config_id,
+                    "architecture": "all_optical",
+                    "task": task_name,
+                    "optical_theta": theta,
+                    "acoustic_c": c,
+                    "n_reservoir": n_res,
+                    "readout_reg": reg,
+                    "theta2": theta2,
+                    "nrmse_primary": f"{mean_val:.4f}" if not np.isnan(mean_val) else "FAILED",
+                    "nrmse_slow": f"{np.mean(valid_slow):.4f}" if valid_slow else "FAILED",
+                    "nrmse_fast": f"{np.mean(valid_fast):.4f}" if valid_fast else "N/A",
+                    "nrmse_std": f"{std_val:.4f}" if not np.isnan(std_val) else "FAILED",
+                    "ci_95": f"{ci_width:.4f}" if not np.isnan(ci_width) else "FAILED",
+                    "n_successful": len(primary_results),
+                    "n_total": n_seeds,
+                })
                 config_id += 1
 
                 if config_id % 20 == 0:
-                    print(f"  Progress: {config_id}/{len(param_combos) * len(ARCHITECTURES) * len(TASKS)} configs")
+                    print(f"  Progress: {config_id}/{total_configs} configs")
 
     # Export full results
     fieldnames = [
         "config_id", "architecture", "task", "optical_theta", "acoustic_c",
-        "n_reservoir", "readout_reg", "nrmse_mean", "nrmse_std", "ci_95",
+        "n_reservoir", "readout_reg", "theta2",
+        "nrmse_primary", "nrmse_slow", "nrmse_fast",
+        "nrmse_std", "ci_95",
         "n_successful", "n_total"
     ]
     with open(f"{RESULTS_DIR}/exp16_hyperparameter_sweep.csv", "w", newline="") as f:
@@ -282,21 +371,24 @@ def main():
 
     # Summary by architecture and task
     print("\n" + "=" * 80)
-    print("SUMMARY: Best configuration per architecture × task")
+    print("SUMMARY: Best primary NRMSE per architecture × task")
+    print("(dual_timescale primary = fast target; others = slow target)")
     print("=" * 80)
     for task_name in TASKS:
         print(f"\nTask: {task_name}")
-        print(f"{'architecture':<15} {'best_nrmse':<12} {'best_params':<40} {'95% CI'}")
+        print(f"{'architecture':<15} {'best_nrmse':<12} {'best_params':<50} {'95% CI'}")
         print("-" * 80)
         for arch_name in ARCHITECTURES:
             task_results = [
                 r for r in results
-                if r["architecture"] == arch_name and r["task"] == task_name and r["nrmse_mean"] != "FAILED"
+                if r["architecture"] == arch_name and r["task"] == task_name and r["nrmse_primary"] != "FAILED"
             ]
             if task_results:
-                best = min(task_results, key=lambda r: float(r["nrmse_mean"]))
+                best = min(task_results, key=lambda r: float(r["nrmse_primary"]))
                 params = f"θ={best['optical_theta']}, c={best['acoustic_c']}, n={best['n_reservoir']}, reg={best['readout_reg']}"
-                print(f"{arch_name:<15} {best['nrmse_mean']:<12} {params:<40} ±{best['ci_95']}")
+                if best["theta2"] != "N/A":
+                    params += f", θ2={best['theta2']}"
+                print(f"{arch_name:<15} {best['nrmse_primary']:<12} {params:<50} ±{best['ci_95']}")
             else:
                 print(f"{arch_name:<15} {'FAILED':<12}")
 
