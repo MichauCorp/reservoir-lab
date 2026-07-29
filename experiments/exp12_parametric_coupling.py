@@ -19,6 +19,7 @@ Configurations compared, same task and reservoir sizes as exp10/exp11:
   - optical + acoustic_param_coupled
 """
 
+import csv
 import numpy as np
 
 from reservoir_lab.physical import (
@@ -27,6 +28,9 @@ from reservoir_lab.physical import (
     ParametricallyCoupledReservoir,
 )
 from reservoir_lab.readout import RidgeReadout
+
+RESULTS_DIR = "experiments/data_results"
+VISUALS_DIR = "experiments/visuals"
 
 N_VIRTUAL = 150
 N_OSCILLATORS = 150
@@ -69,6 +73,7 @@ def evaluate(states_train, states_test, train_targets, test_targets):
 
 
 def main():
+    all_results = []
     for noise_std in NOISE_LEVELS:
         print(f"\n=== noise_std = {noise_std} ===")
         train_inputs, train_targets, test_inputs, test_targets = dual_timescale_task(
@@ -107,6 +112,19 @@ def main():
         for name, (states_train, states_test) in configs.items():
             result = evaluate(states_train, states_test, train_targets, test_targets)
             print(f"{name:<38}{result[0]:<14.4f}{result[1]:.4f}")
+            all_results.append({
+                "noise_std": noise_std,
+                "configuration": name,
+                "nrmse_slow": f"{result[0]:.4f}",
+                "nrmse_fast": f"{result[1]:.4f}",
+            })
+
+    # Export results
+    with open(f"{RESULTS_DIR}/exp12_parametric_coupling.csv", "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["noise_std", "configuration", "nrmse_slow", "nrmse_fast"])
+        writer.writeheader()
+        writer.writerows(all_results)
+    print(f"\nResults saved to {RESULTS_DIR}/exp12_parametric_coupling.csv")
 
     print()
     print("Compare 'optical + acoustic_param_coupled' against exp11's best,")

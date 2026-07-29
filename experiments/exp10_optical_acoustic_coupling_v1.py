@@ -32,10 +32,14 @@ not a tuned final comparison (a fairer test would sweep theta/eta for the
 optical stage and damping/coupling for the acoustic stage).
 """
 
+import csv
 import numpy as np
 
 from reservoir_lab.readout import RidgeReadout
 from reservoir_lab.physical import OptoelectronicReservoir, AcousticReservoir, SerialPhysicalReservoir
+
+RESULTS_DIR = "experiments/data_results"
+VISUALS_DIR = "experiments/visuals"
 
 
 N_VIRTUAL = 150     # optical stage size
@@ -109,6 +113,7 @@ def evaluate(reservoir, train_inputs, train_targets, test_inputs, test_targets, 
 
 
 def main():
+    all_results = []
     for noise_std in NOISE_LEVELS:
         print(f"\n=== noise_std = {noise_std} ===")
         train_inputs, train_targets, test_inputs, test_targets = dual_timescale_task(
@@ -121,6 +126,19 @@ def main():
             reservoir = factory(SEED)
             result = evaluate(reservoir, train_inputs, train_targets, test_inputs, test_targets)
             print(f"{name:<34}{result[0]:<14.4f}{result[1]:.4f}")
+            all_results.append({
+                "noise_std": noise_std,
+                "configuration": name,
+                "nrmse_slow": f"{result[0]:.4f}",
+                "nrmse_fast": f"{result[1]:.4f}",
+            })
+
+    # Export results
+    with open(f"{RESULTS_DIR}/exp10_optical_acoustic_coupling.csv", "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["noise_std", "configuration", "nrmse_slow", "nrmse_fast"])
+        writer.writeheader()
+        writer.writerows(all_results)
+    print(f"\nResults saved to {RESULTS_DIR}/exp10_optical_acoustic_coupling.csv")
 
     print()
     print("Note: same n_reservoir budget per stage (150) across configs, but")

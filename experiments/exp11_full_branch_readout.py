@@ -23,12 +23,16 @@ see which branch the regression actually relies on, rather than only
 inferring it indirectly from NRMSE differences between subsets.
 """
 
+import csv
 import itertools
 
 import numpy as np
 
 from reservoir_lab.physical import AcousticReservoir, OptoelectronicReservoir
 from reservoir_lab.readout import RidgeReadout
+
+RESULTS_DIR = "experiments/data_results"
+VISUALS_DIR = "experiments/visuals"
 
 N_VIRTUAL = 150
 N_OSCILLATORS = 150
@@ -109,6 +113,7 @@ def branch_weight_share(readout, feature_widths, branch_names):
 
 
 def main():
+    all_results = []
     subsets = []
     for r in range(1, len(BRANCHES) + 1):
         subsets.extend(itertools.combinations(BRANCHES, r))
@@ -127,6 +132,12 @@ def main():
             result, readout, widths = evaluate_subset(branch_states, subset, train_targets, test_targets)
             label = " + ".join(subset)
             print(f"{label:<48}{result[0]:<14.4f}{result[1]:.4f}")
+            all_results.append({
+                "noise_std": noise_std,
+                "feature_branches": label,
+                "nrmse_slow": f"{result[0]:.4f}",
+                "nrmse_fast": f"{result[1]:.4f}",
+            })
             if len(subset) == len(BRANCHES):
                 full_readout = (readout, widths, subset)
 
@@ -137,6 +148,13 @@ def main():
         print(f"{'branch':<20}{'slow':<10}{'fast'}")
         for name, row in zip(subset, shares):
             print(f"{name:<20}{row[0]:<10.3f}{row[1]:.3f}")
+
+    # Export results
+    with open(f"{RESULTS_DIR}/exp11_full_branch_readout.csv", "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["noise_std", "feature_branches", "nrmse_slow", "nrmse_fast"])
+        writer.writeheader()
+        writer.writerows(all_results)
+    print(f"\nResults saved to {RESULTS_DIR}/exp11_full_branch_readout.csv")
 
     print()
     print("Note: acoustic_direct and acoustic_coupled are separate instances of")

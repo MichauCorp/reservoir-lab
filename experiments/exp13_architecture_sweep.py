@@ -57,6 +57,9 @@ from reservoir_lab.physical import (
 )
 from reservoir_lab.readout import RidgeReadout
 
+RESULTS_DIR = "experiments/data_results"
+VISUALS_DIR = "experiments/visuals"
+
 N_STEPS = 1400
 WASHOUT = 120
 TRAIN_FRAC = 0.7
@@ -193,11 +196,11 @@ def main():
         except (np.linalg.LinAlgError, ValueError) as e:
             print(f"  FAILED: {arch_name}, interaction={interaction}, {ts_name}, seed={seed}: {e}")
 
-    with open("experiments/exp13_results.csv", "w", newline="") as f:
+    with open(f"{RESULTS_DIR}/exp13_results.csv", "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=["architecture", "interaction", "timescale", "seed", "nrmse_slow", "nrmse_fast"])
         writer.writeheader()
         writer.writerows(results)
-    print("Raw results written to experiments/exp13_results.csv\n")
+    print(f"Raw results written to {RESULTS_DIR}/exp13_results.csv\n")
 
     # Aggregate: mean +/- std across seeds, per (architecture, interaction, timescale)
     print(f"{'architecture':<20}{'interaction':<13}{'timescale':<12}{'fast NRMSE (mean+-std)'}")

@@ -9,11 +9,15 @@ generalize to held-out data) before comparing them on harder tasks
 (Mackey-Glass, NARMA10, memory capacity, etc).
 """
 
+import csv
 import numpy as np
 
 from reservoir_lab.reservoir import ESN
 from reservoir_lab.readout import RidgeReadout
 from reservoir_lab.physical import OptoelectronicReservoir, AcousticReservoir
+
+RESULTS_DIR = "experiments/data_results"
+VISUALS_DIR = "experiments/visuals"
 
 
 # 1. Data (same as exp02)
@@ -38,12 +42,22 @@ def evaluate(name, reservoir, washout=100):
 
     mse = np.mean((pred - test_targets) ** 2)
     print(f"{name:>15s}  n_reservoir={reservoir.n_reservoir:<5d}  test MSE={mse:.6f}")
-    return mse
+    return name, reservoir.n_reservoir, mse
 
 
 print("Sine-wave generalization: software ESN vs. simulated physical reservoirs")
 print("-" * 74)
 
-evaluate("ESN", ESN(n_inputs=1, n_reservoir=200, spectral_radius=0.9, sparsity=0.1))
-evaluate("Optoelectronic", OptoelectronicReservoir(n_inputs=1, n_virtual_nodes=200))
-evaluate("Acoustic", AcousticReservoir(n_inputs=1, n_oscillators=200))
+results = [
+    evaluate("ESN", ESN(n_inputs=1, n_reservoir=200, spectral_radius=0.9, sparsity=0.1)),
+    evaluate("Optoelectronic", OptoelectronicReservoir(n_inputs=1, n_virtual_nodes=200)),
+    evaluate("Acoustic", AcousticReservoir(n_inputs=1, n_oscillators=200)),
+]
+
+# Export results
+with open(f"{RESULTS_DIR}/exp08_physical_reservoirs.csv", "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["name", "n_reservoir", "test_mse"])
+    for name, n_res, mse in results:
+        writer.writerow([name, n_res, f"{mse:.6f}"])
+print(f"Results saved to {RESULTS_DIR}/exp08_physical_reservoirs.csv")

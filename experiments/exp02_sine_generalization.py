@@ -1,7 +1,11 @@
+import csv
 import numpy as np
 
 from reservoir_lab.reservoir import ESN
 from reservoir_lab.visualize import plot_results
+
+RESULTS_DIR = "experiments/data_results"
+VISUALS_DIR = "experiments/visuals"
 
 
 # 1. Generate data
@@ -58,6 +62,13 @@ mse = np.mean((pred - test_targets)**2)
 
 print(f"Test MSE: {mse}")
 
+# Export results
+with open(f"{RESULTS_DIR}/exp02_sine_generalization.csv", "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["metric", "value"])
+    writer.writerow(["mse", f"{mse:.6f}"])
+print(f"Results saved to {RESULTS_DIR}/exp02_sine_generalization.csv")
+
 
 # 8. Visualize — use the actual test-period states, not the train states
 
@@ -67,5 +78,5 @@ plot_results(
     pred,
     test_states,
     title="Sine wave generalization",
-    save_path="experiments/visuals/sine_generalization.png"
+    save_path=f"{VISUALS_DIR}/exp02_sine_generalization.png"
 )

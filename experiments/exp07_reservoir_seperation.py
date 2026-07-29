@@ -1,7 +1,11 @@
+import csv
 import numpy as np
 import matplotlib.pyplot as plt
 
 from reservoir_lab.reservoir import ESN
+
+RESULTS_DIR = "experiments/data_results"
+VISUALS_DIR = "experiments/visuals"
 
 
 # -----------------------------
@@ -76,6 +80,15 @@ print(f"Average input distance: {np.mean(input_distances):.6f}")
 print(f"Average state distance: {average_distance:.6f}")
 print(f"Maximum state distance: {maximum_distance:.6f}")
 
+# Export results
+with open(f"{RESULTS_DIR}/exp07_reservoir_seperation.csv", "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["metric", "value"])
+    writer.writerow(["average_input_distance", f"{np.mean(input_distances):.6f}"])
+    writer.writerow(["average_state_distance", f"{average_distance:.6f}"])
+    writer.writerow(["maximum_state_distance", f"{maximum_distance:.6f}"])
+print(f"Results saved to {RESULTS_DIR}/exp07_reservoir_seperation.csv")
+
 
 # -----------------------------
 # Plot separation over time
@@ -92,5 +105,5 @@ axes[1].set_title("Reservoir state distance |states1 - states2| over time")
 axes[1].set_xlabel("timestep")
 
 plt.tight_layout(rect=[0, 0, 1, 0.93])
-plt.savefig("experiments/visuals/exp07_separation.png", dpi=120, bbox_inches="tight")
-print("Saved plot to experiments/visuals/exp07_separation.png")
+plt.savefig(f"{VISUALS_DIR}/exp07_separation.png", dpi=120, bbox_inches="tight")
+print(f"Saved plot to {VISUALS_DIR}/exp07_separation.png")

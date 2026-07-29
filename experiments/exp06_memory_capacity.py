@@ -1,6 +1,10 @@
+import csv
 import numpy as np
 
 from reservoir_lab.reservoir import ESN
+
+RESULTS_DIR = "experiments/data_results"
+VISUALS_DIR = "experiments/visuals"
 
 
 # -----------------------------
@@ -130,3 +134,11 @@ for delay, mse in zip(delays, results):
     print(
         f"Delay {delay}: {mse:.6f}"
     )
+
+# Export results
+with open(f"{RESULTS_DIR}/exp06_memory_capacity.csv", "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["delay", "mse"])
+    for delay, mse in zip(delays, results):
+        writer.writerow([delay, f"{mse:.6f}"])
+print(f"Results saved to {RESULTS_DIR}/exp06_memory_capacity.csv")

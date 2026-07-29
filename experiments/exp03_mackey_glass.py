@@ -1,7 +1,11 @@
+import csv
 import numpy as np
 
 from reservoir_lab.reservoir import ESN
 from reservoir_lab.visualize import plot_results
+
+RESULTS_DIR = "experiments/data_results"
+VISUALS_DIR = "experiments/visuals"
 
 
 # Generate Mackey-Glass chaotic time series
@@ -78,7 +82,14 @@ mse = np.mean(
     (pred - test_targets) ** 2
 )
 
-print("MSE:", mse)
+print(f"MSE: {mse:.6f}")
+
+# Export results
+with open(f"{RESULTS_DIR}/exp03_mackey_glass.csv", "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["metric", "value"])
+    writer.writerow(["mse", f"{mse:.6f}"])
+print(f"Results saved to {RESULTS_DIR}/exp03_mackey_glass.csv")
 
 
 # 8. Plot results
@@ -89,5 +100,5 @@ plot_results(
     pred,
     test_states,
     title="Mackey-Glass prediction",
-    save_path="experiments/visuals/mackey_glass.png"
+    save_path=f"{VISUALS_DIR}/exp03_mackey_glass.png"
 )

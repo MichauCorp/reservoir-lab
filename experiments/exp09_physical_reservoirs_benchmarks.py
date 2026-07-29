@@ -29,11 +29,15 @@ suggested in exp09's follow-up. Treat this script as the baseline that
 motivates that sweep, not the final word.
 """
 
+import csv
 import numpy as np
 
 from reservoir_lab.reservoir import ESN
 from reservoir_lab.readout import RidgeReadout
 from reservoir_lab.physical import OptoelectronicReservoir, AcousticReservoir
+
+RESULTS_DIR = "experiments/data_results"
+VISUALS_DIR = "experiments/visuals"
 
 
 # =====================================================================
@@ -214,20 +218,29 @@ def main():
     print(f"{'Task':<15}{'ESN':>16}{'Optoelectronic':>20}{'Acoustic':>16}")
     print("-" * 78)
 
+    prediction_results = []
     for task_name, (task_fn, cfg) in TASKS.items():
         train_inputs, train_targets, test_inputs, test_targets = task_fn()
         n_inputs = train_inputs.shape[1]
 
-        row = [task_name]
+        row = {"task": task_name}
         for res_name, factory in RESERVOIR_TYPES.items():
             mse = run_prediction_benchmark(
                 factory, n_inputs, cfg["n_reservoir"], seed,
                 train_inputs, train_targets, test_inputs, test_targets,
                 cfg["washout"],
             )
-            row.append(mse)
+            row[res_name] = mse
 
-        print(f"{row[0]:<15}{row[1]:>16.6f}{row[2]:>20.6f}{row[3]:>16.6f}")
+        print(f"{row['task']:<15}{row['ESN']:>16.6f}{row['Optoelectronic']:>20.6f}{row['Acoustic']:>16.6f}")
+        prediction_results.append(row)
+
+    # Export prediction results
+    with open(f"{RESULTS_DIR}/exp09_prediction_benchmarks.csv", "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["task", "ESN", "Optoelectronic", "Acoustic"])
+        writer.writeheader()
+        writer.writerows(prediction_results)
+    print(f"\nPrediction results saved to {RESULTS_DIR}/exp09_prediction_benchmarks.csv")
 
     print()
     print("=" * 78)
@@ -238,19 +251,36 @@ def main():
     print("-" * 78)
 
     mc_results = {}
+
     for res_name, factory in RESERVOIR_TYPES.items():
         total_mc, per_delay = memory_capacity(factory, n_reservoir=200, seed=seed)
         mc_results[res_name] = (total_mc, per_delay)
         print(f"{res_name:<20}{total_mc:>15.3f}")
 
+    delays = list(next(iter(mc_results.values()))[1].keys())
+
+    mc_export = []
+    for res_name, (total_mc, per_delay) in mc_results.items():
+        # Prepare export row
+        row = {"reservoir": res_name, "total_mc": f"{total_mc:.2f}"}
+        row.update({str(d): f"{per_delay[d]:.3f}" for d in delays})
+        mc_export.append(row)
+
     print()
     print("Per-delay breakdown:")
-    delays = list(next(iter(mc_results.values()))[1].keys())
     header = "Delay  " + "".join(f"{d:>10}" for d in delays)
     print(header)
     for res_name, (total_mc, per_delay) in mc_results.items():
         row = f"{res_name:<20}" + "".join(f"{per_delay[d]:>10.3f}" for d in delays)
         print(row)
+
+    # Export memory capacity results
+    fieldnames = ["reservoir", "total_mc"] + [str(d) for d in delays]
+    with open(f"{RESULTS_DIR}/exp09_memory_capacity.csv", "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(mc_export)
+    print(f"\nMemory capacity results saved to {RESULTS_DIR}/exp09_memory_capacity.csv")
 
     print()
     print("Note: all reservoirs used default/untuned hyperparameters and")

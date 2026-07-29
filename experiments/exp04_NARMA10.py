@@ -1,7 +1,11 @@
+import csv
 import numpy as np
 
 from reservoir_lab.reservoir import ESN
 from reservoir_lab.visualize import plot_results
+
+RESULTS_DIR = "experiments/data_results"
+VISUALS_DIR = "experiments/visuals"
 
 
 # Generate NARMA10 data
@@ -75,7 +79,14 @@ mse = np.mean(
     (pred - test_targets)**2
 )
 
-print("MSE:", mse)
+print(f"MSE: {mse:.6f}")
+
+# Export results
+with open(f"{RESULTS_DIR}/exp04_NARMA10.csv", "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["metric", "value"])
+    writer.writerow(["mse", f"{mse:.6f}"])
+print(f"Results saved to {RESULTS_DIR}/exp04_NARMA10.csv")
 
 
 # 7. Plot
@@ -86,5 +97,5 @@ plot_results(
     pred,
     test_states,
     title="NARMA10 prediction",
-    save_path="experiments/visuals/narma10.png"
+    save_path=f"{VISUALS_DIR}/exp04_narma10.png"
 )
