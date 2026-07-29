@@ -1,6 +1,7 @@
 import csv
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 
 from reservoir_lab.reservoir import ESN
 

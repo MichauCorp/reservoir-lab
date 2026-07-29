@@ -1,0 +1,22 @@
+noise_std,feature_branches,nrmse_slow,nrmse_fast
+0.15,optical,0.4815,0.8982
+0.15,acoustic_direct,0.0956,0.9968
+0.15,acoustic_coupled,0.1060,0.9975
+0.15,optical + acoustic_direct,0.0922,0.5015
+0.15,optical + acoustic_coupled,0.1034,0.5038
+0.15,acoustic_direct + acoustic_coupled,0.1155,0.9994
+0.15,optical + acoustic_direct + acoustic_coupled,0.1121,0.5089
+0.4,optical,0.6390,0.9207
+0.4,acoustic_direct,0.2018,0.9994
+0.4,acoustic_coupled,0.2496,0.9995
+0.4,optical + acoustic_direct,0.1942,0.8019
+0.4,optical + acoustic_coupled,0.2418,0.8040
+0.4,acoustic_direct + acoustic_coupled,0.2579,1.0006
+0.4,optical + acoustic_direct + acoustic_coupled,0.2489,0.8109
+0.8,optical,0.8136,0.9492
+0.8,acoustic_direct,0.3051,0.9999
+0.8,acoustic_coupled,0.3936,1.0000
+0.8,optical + acoustic_direct,0.2938,0.9239
+0.8,optical + acoustic_coupled,0.3836,0.9247
+0.8,acoustic_direct + acoustic_coupled,0.3735,1.0006
+0.8,optical + acoustic_direct + acoustic_coupled,0.3601,0.9291

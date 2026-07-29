@@ -29,6 +29,7 @@ checks whether that asymmetry changes which architecture wins.
 """
 
 import csv
+
 import matplotlib
 
 matplotlib.use("Agg")

@@ -1,0 +1,16 @@
+noise_std,configuration,nrmse_slow,nrmse_fast
+0.15,optical only,0.4815,0.8982
+0.15,acoustic_direct only,0.0956,0.9968
+0.15,acoustic_param_coupled only,0.0940,0.9965
+0.15,optical + acoustic_direct,0.0922,0.5015
+0.15,optical + acoustic_param_coupled,0.0908,0.5009
+0.4,optical only,0.6390,0.9207
+0.4,acoustic_direct only,0.2018,0.9994
+0.4,acoustic_param_coupled only,0.1955,0.9994
+0.4,optical + acoustic_direct,0.1942,0.8019
+0.4,optical + acoustic_param_coupled,0.1887,0.8016
+0.8,optical only,0.8136,0.9492
+0.8,acoustic_direct only,0.3051,0.9999
+0.8,acoustic_param_coupled only,0.3171,0.9999
+0.8,optical + acoustic_direct,0.2938,0.9239
+0.8,optical + acoustic_param_coupled,0.3041,0.9246

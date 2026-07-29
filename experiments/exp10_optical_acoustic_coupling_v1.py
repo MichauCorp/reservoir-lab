@@ -33,10 +33,15 @@ optical stage and damping/coupling for the acoustic stage).
 """
 
 import csv
+
 import numpy as np
 
+from reservoir_lab.physical import (
+    AcousticReservoir,
+    OptoelectronicReservoir,
+    SerialPhysicalReservoir,
+)
 from reservoir_lab.readout import RidgeReadout
-from reservoir_lab.physical import OptoelectronicReservoir, AcousticReservoir, SerialPhysicalReservoir
 
 RESULTS_DIR = "experiments/data_results"
 VISUALS_DIR = "experiments/visuals"

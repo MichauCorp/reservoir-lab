@@ -30,11 +30,12 @@ motivates that sweep, not the final word.
 """
 
 import csv
+
 import numpy as np
 
-from reservoir_lab.reservoir import ESN
+from reservoir_lab.physical import AcousticReservoir, OptoelectronicReservoir
 from reservoir_lab.readout import RidgeReadout
-from reservoir_lab.physical import OptoelectronicReservoir, AcousticReservoir
+from reservoir_lab.reservoir import ESN
 
 RESULTS_DIR = "experiments/data_results"
 VISUALS_DIR = "experiments/visuals"
@@ -128,9 +129,9 @@ def mackey_glass_task(length=6000, train_size=4000, tau=17):
 
 
 TASKS = {
-    "Sine": (sine_task, dict(n_reservoir=200, washout=50)),
-    "NARMA10": (narma10_task, dict(n_reservoir=300, washout=100)),
-    "Mackey-Glass": (mackey_glass_task, dict(n_reservoir=500, washout=100)),
+    "Sine": (sine_task, {"n_reservoir": 200, "washout": 50}),
+    "NARMA10": (narma10_task, {"n_reservoir": 300, "washout": 100}),
+    "Mackey-Glass": (mackey_glass_task, {"n_reservoir": 500, "washout": 100}),
 }
 
 

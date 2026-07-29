@@ -10,11 +10,12 @@ generalize to held-out data) before comparing them on harder tasks
 """
 
 import csv
+
 import numpy as np
 
-from reservoir_lab.reservoir import ESN
+from reservoir_lab.physical import AcousticReservoir, OptoelectronicReservoir
 from reservoir_lab.readout import RidgeReadout
-from reservoir_lab.physical import OptoelectronicReservoir, AcousticReservoir
+from reservoir_lab.reservoir import ESN
 
 RESULTS_DIR = "experiments/data_results"
 VISUALS_DIR = "experiments/visuals"

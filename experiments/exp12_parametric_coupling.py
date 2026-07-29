@@ -20,6 +20,7 @@ Configurations compared, same task and reservoir sizes as exp10/exp11:
 """
 
 import csv
+
 import numpy as np
 
 from reservoir_lab.physical import (

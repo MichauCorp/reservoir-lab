@@ -1,7 +1,9 @@
 import csv
-import numpy as np # numerical arrays
-from reservoir_lab.reservoir import ESN # the class defined above
-from reservoir_lab.visualize import plot_results # visualization
+
+import numpy as np  # numerical arrays
+
+from reservoir_lab.reservoir import ESN  # the class defined above
+from reservoir_lab.visualize import plot_results  # visualization
 
 RESULTS_DIR = "experiments/data_results"
 VISUALS_DIR = "experiments/visuals"

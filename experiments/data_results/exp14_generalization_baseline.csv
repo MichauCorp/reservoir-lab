@@ -1,0 +1,7 @@
+task,architecture,fast_nrmse_mean,fast_nrmse_std
+tanh_gate,parallel,0.9005,0.0145
+tanh_gate,serial_force (optical+acoustic),0.8505,0.0236
+tanh_gate,all_optical_dual_delay (tuned),0.9113,0.0158
+pulse_gate,parallel,0.9821,0.0188
+pulse_gate,serial_force (optical+acoustic),0.9795,0.0090
+pulse_gate,all_optical_dual_delay (tuned),0.9941,0.0020

@@ -1,4 +1,5 @@
 import csv
+
 import numpy as np
 
 from reservoir_lab.reservoir import ESN
