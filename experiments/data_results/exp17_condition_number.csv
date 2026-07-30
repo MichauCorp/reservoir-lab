@@ -1,0 +1,13 @@
+architecture,theta,c,n_reservoir,n_features,condition_number,effective_rank,effective_rank_fraction
+serial_force,0.2,0.3,100,200,2.05e+12,8.04,0.0402
+parallel,0.2,0.3,100,200,1.97e+13,2.15,0.0107
+all_optical,0.2,0.3,100,200,9.62e+11,1.85,0.0093
+serial_force,1.0,0.3,100,200,4.56e+12,11.97,0.0599
+parallel,1.0,0.3,100,200,1.18e+13,2.97,0.0148
+all_optical,1.0,0.3,100,200,5.97e+11,3.18,0.0159
+serial_force,0.2,1.0,100,200,1.49e+12,3.36,0.0168
+parallel,0.2,1.0,100,200,1.53e+13,1.73,0.0087
+all_optical,0.2,1.0,100,200,9.62e+11,1.85,0.0093
+serial_force,1.0,1.0,100,200,3.89e+12,5.58,0.0279
+parallel,1.0,1.0,100,200,9.27e+12,2.69,0.0134
+all_optical,1.0,1.0,100,200,5.97e+11,3.18,0.0159
