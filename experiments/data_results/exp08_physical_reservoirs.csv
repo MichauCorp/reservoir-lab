@@ -1,0 +1,4 @@
+name,n_reservoir,test_mse
+ESN,200,0.000001
+Optoelectronic,200,0.000010
+Acoustic,200,0.000030

@@ -12,10 +12,10 @@ source-filter model of speech:
     unvoiced (formant suppressed) — a classic slow-gates-fast amplitude
     modulation, biophysically analogous to the EEG alpha-suppression mechanism
 
-Task: predict the formant-1 amplitude envelope (slow signal) from the raw
-waveform. This is a multi-step-ahead regression problem: the readout must
-reconstruct the slowly-varying gating trajectory while ignoring the fast
-pitch-period oscillations.
+Task: predict the formant-1 amplitude envelope (slow signal) from a noisy
+version of the actual formant-filtered waveform. The readout must
+reconstruct the slowly-varying gating trajectory while ignoring both the
+fast pitch-period oscillations and additive noise.
 
 Architectures:
   - serial_force  (optical→acoustic, force-coupled)
@@ -35,6 +35,8 @@ import numpy as np
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from scipy import stats
+from scipy.ndimage import uniform_filter1d
+from scipy.signal import hilbert
 
 from reservoir_lab.physical import (
     AcousticReservoir,
@@ -69,12 +71,13 @@ def _glottal_pulse(pitch_period):
     return pulse
 
 
-def generate_speech_signal(n_steps=N_STEPS, seed=0):
+def generate_speech_signal(n_steps=N_STEPS, seed=0, noise_std=0.15):
     """Generate a speech-realistic signal with slow-gated formant amplitude.
 
     Returns:
-        u: waveform (n_steps, 1)
-        envelope: target formant-1 amplitude envelope (n_steps, 1)
+        u: noisy formant-filtered waveform (n_steps, 1)
+        envelope: target amplitude envelope, extracted from the clean
+            waveform via Hilbert transform (n_steps, 1)
     """
     rng = np.random.default_rng(seed)
     pitch_period = PITCH_PERIOD
@@ -98,14 +101,23 @@ def generate_speech_signal(n_steps=N_STEPS, seed=0):
     formant = formant[2:n_steps + 2].copy()
     formant /= (np.max(np.abs(formant)) + 1e-8)
 
-    # Observed waveform = glottal excitation directly (pre-formation)
-    # In a real vocoder, the output is the post-formant signal; here we give
-    # the model the raw excitation and ask it to predict the envelope
-    u = np.zeros((n_steps, 1))
-    for i in range(n_steps):
-        u[i, 0] = pulse[i % pitch_period] * (0.5 + 0.5 * rng.normal())
+    # Target: smooth amplitude envelope of the CLEAN formant signal, via
+    # Hilbert transform -- extracted from the signal itself (the same
+    # approach exp21's real-ECG targets use), not read off the private
+    # `gate` generative variable directly.
+    envelope = np.abs(hilbert(formant))
+    envelope = uniform_filter1d(envelope, size=pitch_period * 3)
+    envelope /= (np.max(np.abs(envelope)) + 1e-8)
 
-    envelope = formant.reshape(-1, 1)
+    # Observed waveform = the actual (noisy) formant-filtered signal.
+    # Previously this was built independently of `gate`/`formant` --
+    # meaning the input carried zero information about what the model
+    # was asked to predict, making the task unsolvable by construction
+    # for every architecture equally. Fixed: input now genuinely carries
+    # the gate-modulated amplitude structure the target requires.
+    u = (formant + rng.normal(0, noise_std, n_steps)).reshape(-1, 1)
+
+    envelope = envelope.reshape(-1, 1)
     return u, envelope
 
 
@@ -204,7 +216,7 @@ def evaluate(train_feats, y_train, test_feats, y_test, reg=REG):
             cond_number = float(s[0] / s[-1])
             eff_rank = float((s.sum() ** 2) / (s**2).sum())
             eff_rank_frac = eff_rank / len(s)
-    except Exception:
+    except (np.linalg.LinAlgError, ValueError):
         pass
     return error, cond_number, eff_rank, eff_rank_frac
 
@@ -293,7 +305,7 @@ def main():
     arch_names = list(BUILDERS.keys())
     means = [np.mean(nrmse_by_arch[a]) for a in arch_names]
     cis = [stats.sem(nrmse_by_arch[a]) * stats.t.ppf((1 + 0.95) / 2, len(nrmse_by_arch[a]) - 1) for a in arch_names]
-    bars = ax.bar(arch_names, means, color=[colors[a] for a in arch_names], edgecolor="black", linewidth=0.6)
+    ax.bar(arch_names, means, color=[colors[a] for a in arch_names], edgecolor="black", linewidth=0.6)
     ax.errorbar(arch_names, means, yerr=cis, fmt="none", color="black", capsize=4)
     ax.set_ylabel("NRMSE (lower is better)")
     ax.set_title(f"Speech Formant Tracking NRMSE\n(mean ± 95% CI, {len(SEEDS)} seeds)")
@@ -320,7 +332,7 @@ def main():
     sf_errs = nrmse_by_arch["serial_force"]
     for arch in ["parallel", "all_optical", "simple_esn"]:
         other_errs = nrmse_by_arch[arch]
-        t_stat, p_val = stats.ttest_rel(sf_errs, other_errs)
+        _t_stat, p_val = stats.ttest_rel(sf_errs, other_errs)
         direction = "serial_force <" if np.mean(sf_errs) < np.mean(other_errs) else "serial_force >"
         print(f"  serial_force vs {arch:<14}: {direction}  p={p_val:.4f}")
 
