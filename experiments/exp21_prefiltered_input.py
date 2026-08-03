@@ -1,14 +1,32 @@
 """
-exp21: Does pre-filtering the optical stage's input restore serial_force's
-slow-target advantage on broadband signals?
+exp21: Does pre-filtering the optical stage's input change serial_force's
+slow-target performance on broadband signals?
 
 Motivation: exp20 showed serial_force's slow-target advantage over parallel
 on sinusoid (0.208 vs 0.232, mean across seeds) reverses on broadband
-(0.228 vs 0.208). The hypothesis is that the optical reservoir's short
-memory (theta=0.2) smears sharp transients, passing a noisier drive to the
-acoustic stage in serial_force. Pre-filtering the input to the optical
-stage should smooth the broadband transients, letting the optical stage
-track the amplitude modulation more cleanly.
+(0.228 vs 0.208, parallel now wins). The hypothesis was that the optical
+reservoir's short memory (theta=0.2) smears sharp transients, passing a
+noisier drive to the acoustic stage in serial_force. Pre-filtering the
+input to the optical stage should smooth the broadband transients, letting
+the optical stage track the amplitude modulation more cleanly.
+
+RESULT (see exp22_optical_theta_sweep.py for the mechanistic follow-up):
+pre-filtering did NOT restore serial_force's advantage -- it improved
+slow-target accuracy for BOTH serial_force and parallel by similar
+amounts, and the broadband-case reversal disappeared into a near-exact
+TIE (serial_force_prefilter 0.161 vs parallel_prefilter 0.162), not a
+restored serial_force win. The correct reading is "pre-filtering erases
+the architecture difference", not "pre-filtering restores the advantage".
+
+Also worth being explicit about, since it doesn't show up in the printed
+slow-target summary: pre-filtering is not a free fix. It completely
+destroys fast-target performance for both prefiltered variants (NRMSE
+~1.0, no better than predicting the mean) because the low-pass filter
+removes the fast content before any reservoir ever sees it. This
+confirms the mechanism (unfiltered broadband transients reaching optical
+do interfere with slow-target tracking) but the "fix" tested here is a
+tradeoff, not a solution -- see exp22 for an attempt at a real fix
+(tuning optical's own dynamics rather than deleting information).
 
 Design:
   - Two waveform types: sinusoid and broadband (same as exp20)
@@ -24,14 +42,11 @@ Design:
     This is well above the slow component's frequency (~0.0056 cycles/sample,
     period 180) and below the fast component's fundamental (~0.083, period 12).
 
-Hypothesis: serial_force_prefilter on broadband will recover slow-target
-NRMSE toward serial_force's sinusoid level, while parallel_prefilter will
-show little change.
-
 References:
   - exp20 (waveform shape experiment) provides the baseline numbers
   - exp16 provides the builder functions for serial_force and parallel
   - exp14 showed the mechanism: gate decodability from acoustic state alone
+  - exp22 follows up on this experiment's actual finding
 """
 
 import csv
@@ -288,7 +303,7 @@ def main():
         ax.legend(fontsize=8)
 
     fig.suptitle(
-        "exp21: Does pre-filtering optical input restore serial_force on broadband?",
+        "exp21: Pre-filtering erases the architecture difference (does not restore serial_force)",
         fontsize=10,
     )
     fig.tight_layout()
@@ -312,7 +327,30 @@ def main():
     fig.tight_layout()
     fig.savefig(f"{VISUALS_DIR}/exp21_prefilter_examples.png", dpi=130)
     plt.close(fig)
-    print(f"Saved pre-filter example plot to {VISUALS_DIR}/exp21_prefilter_examples.png")
+    print(f"\nSaved pre-filter example plot to {VISUALS_DIR}/exp21_prefilter_examples.png")
+
+    slow_sf_bb = summary[("broadband", "serial_force")][0]
+    slow_sfp_bb = summary[("broadband", "serial_force_prefilter")][0]
+    slow_pa_bb = summary[("broadband", "parallel")][0]
+    slow_pap_bb = summary[("broadband", "parallel_prefilter")][0]
+    fast_sfp_bb = summary[("broadband", "serial_force_prefilter")][2]
+    fast_pap_bb = summary[("broadband", "parallel_prefilter")][2]
+
+    print("=" * 74)
+    print("CONCLUSION")
+    print("=" * 74)
+    print(f"Broadband slow-target, unfiltered:  serial_force={slow_sf_bb:.4f}  parallel={slow_pa_bb:.4f}  "
+          f"({'parallel wins' if slow_pa_bb < slow_sf_bb else 'serial_force wins'})")
+    print(f"Broadband slow-target, prefiltered: serial_force={slow_sfp_bb:.4f}  parallel={slow_pap_bb:.4f}  "
+          f"({'near-tie' if abs(slow_sfp_bb - slow_pap_bb) < 0.01 else 'still separated'})")
+    print("Pre-filtering did NOT restore a serial_force advantage -- it improved both")
+    print("architectures similarly and erased the difference between them (a tie, not a win).")
+    print()
+    print(f"Fast-target cost of pre-filtering: serial_force_prefilter={fast_sfp_bb:.4f}, "
+          f"parallel_prefilter={fast_pap_bb:.4f} (both ~1.0 = no better than predicting the mean).")
+    print("This is not a free fix -- removing the fast content to help the slow target also")
+    print("destroys the model's ability to do the fast task at all. See exp22 for an attempt")
+    print("at a real fix: tuning optical's own dynamics instead of deleting information.")
 
 
 if __name__ == "__main__":

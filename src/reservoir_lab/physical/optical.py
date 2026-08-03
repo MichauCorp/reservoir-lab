@@ -35,6 +35,17 @@ import numpy as np
 
 from .base import PhysicalReservoir, make_mask
 
+# Fixed integration step, independent of theta. Historically this defaulted to
+# theta/10, which silently coupled the response timescale (theta) to the
+# integration step / virtual-node delay-window size (tau = n_virtual_nodes *
+# dt): any theta sweep without an explicit dt stretched the delay window
+# proportionally -- a confound that corrupted exp14, exp16, and exp22's first
+# drafts. dt is now a fixed constant (0.02, the value established by exp22's
+# OPTICAL_DT and used by exp14/16/17's fixed-dt builds). For theta=0.2 (the
+# value used throughout this investigation) theta/10 == 0.02, so behavior is
+# numerically unchanged for that case.
+DEFAULT_DT = 0.02
+
 
 class OptoelectronicReservoir(PhysicalReservoir):
 
@@ -60,7 +71,7 @@ class OptoelectronicReservoir(PhysicalReservoir):
 
         # One virtual node per Euler integration step within a delay window.
         # dt is the integration step; the delay tau = n_virtual_nodes * dt.
-        self.dt = dt if dt is not None else theta / 10
+        self.dt = dt if dt is not None else DEFAULT_DT
 
         self.mask = make_mask(
             n_virtual_nodes, n_inputs, levels=mask_levels, seed=seed

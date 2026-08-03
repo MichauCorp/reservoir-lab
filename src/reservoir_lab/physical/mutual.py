@@ -32,6 +32,13 @@ import numpy as np
 
 from .base import PhysicalReservoir, make_mask
 
+# Fixed optical integration step, independent of theta. Same rationale as
+# OptoelectronicReservoir.DEFAULT_DT: theta/10 silently coupled the response
+# timescale to the virtual-node delay-window size, confounding any theta
+# sweep. For theta=0.2, theta/10 == 0.02, so behavior is numerically
+# unchanged for the values used throughout this investigation.
+DEFAULT_DT = 0.02
+
 
 class MutualCoupledReservoir(PhysicalReservoir):
     def __init__(
@@ -65,7 +72,7 @@ class MutualCoupledReservoir(PhysicalReservoir):
         self.n_virtual_nodes = n_virtual_nodes
         self.n_oscillators = n_oscillators
         self.theta, self.eta, self.gamma, self.phi = theta, eta, gamma, phi
-        self.optical_dt = optical_dt if optical_dt is not None else theta / 10
+        self.optical_dt = optical_dt if optical_dt is not None else DEFAULT_DT
         self.mask = make_mask(n_virtual_nodes, n_inputs, levels=mask_levels, seed=seed)
 
         self.k, self.alpha, self.c_base, self.c_mod_gain, self.k_c = k, alpha, c_base, c_mod_gain, k_c
