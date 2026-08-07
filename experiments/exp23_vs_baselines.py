@@ -48,7 +48,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from experiments.exp18_real_signal_ecg import build_ecg_task
+from experiments.ecg_utils import build_ecg_task
 from experiments.exp20_waveform_shape import dual_timescale_task
 from reservoir_lab.physical import (
     AcousticReservoir,

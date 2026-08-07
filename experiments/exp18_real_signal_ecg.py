@@ -36,6 +36,10 @@ TASK CONSTRUCTION:
   - decimated 5x (360 Hz -> 72 Hz) with proper anti-aliasing, both for
     tractable runtime and because 72 Hz is comfortably above the 30 Hz
     fast band's Nyquist requirement
+
+The task construction and PAC verification live in experiments/ecg_utils.py
+(shared with exp27); this file calls them with the original first-120-second
+window to preserve exp18's exact behavior.
 """
 
 import csv
@@ -49,10 +53,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.datasets import electrocardiogram
-from scipy.ndimage import uniform_filter1d
-from scipy.signal import butter, decimate, hilbert, sosfiltfilt
 
+from experiments.ecg_utils import build_ecg_task
 from experiments.exp16_hyperparameter_sweep import (
     build_all_optical,
     build_parallel,
@@ -63,53 +65,8 @@ from reservoir_lab.readout import RidgeReadout
 RESULTS_DIR = "experiments/data_results"
 VISUALS_DIR = "experiments/visuals"
 WASHOUT = 100
-TRAIN_FRAC = 0.7
-FS_NATIVE = 360.0
-DECIMATE_FACTOR = 5
-SEGMENT_SECONDS = 120  # first 120s of the recording
 SEEDS = [1, 2, 3, 4, 5, 6]
 THETA, C, N_RES, REG = 0.2, 0.3, 100, 1e-3
-
-
-def verify_pac(low, fast_band):
-    """Confirms genuine phase-amplitude coupling exists before building
-    any task on it -- see module docstring."""
-    envelope = np.abs(hilbert(fast_band))
-    envelope_smooth = uniform_filter1d(envelope, size=int(FS_NATIVE * 0.3))
-    value_corr = np.corrcoef(low, envelope_smooth)[0, 1]
-
-    slow_phase = np.angle(hilbert(low - low.mean()))
-    bins = np.linspace(-np.pi, np.pi, 19)
-    idx = np.digitize(slow_phase, bins)
-    means = np.array([envelope_smooth[idx == b].mean() for b in range(1, 19)])
-    modulation_depth = (means.max() - means.min()) / means.mean()
-    return value_corr, modulation_depth
-
-
-def build_ecg_task(seed, noise_std=0.3):
-    ecg = electrocardiogram()
-    n_native = int(SEGMENT_SECONDS * FS_NATIVE)
-    seg = ecg[:n_native]
-    seg = (seg - seg.mean()) / seg.std()  # standardize to O(1) scale, matching prior synthetic tasks
-
-    sos_low = butter(4, 2.0, btype="low", fs=FS_NATIVE, output="sos")
-    sos_fast = butter(4, [8.0, 30.0], btype="band", fs=FS_NATIVE, output="sos")
-    low_native = sosfiltfilt(sos_low, seg)
-    fast_native = sosfiltfilt(sos_fast, seg)
-
-    value_corr, mod_depth = verify_pac(low_native, fast_native)
-
-    low = decimate(low_native, DECIMATE_FACTOR, zero_phase=True)
-    fast = decimate(fast_native, DECIMATE_FACTOR, zero_phase=True)
-    clean = decimate(seg, DECIMATE_FACTOR, zero_phase=True)
-
-    rng = np.random.default_rng(seed)
-    noisy_input = clean + rng.normal(0, noise_std, len(clean))
-
-    u = noisy_input.reshape(-1, 1)
-    y = np.stack([low, fast], axis=1)
-    split = int(len(u) * TRAIN_FRAC)
-    return u[:split], y[:split], u[split:], y[split:], value_corr, mod_depth
 
 
 def nrmse(pred, true):
@@ -141,7 +98,9 @@ def main():
     example_task = None
 
     for seed in SEEDS:
-        u_train, y_train, u_test, y_test, value_corr, mod_depth = build_ecg_task(seed)
+        u_train, y_train, u_test, y_test, value_corr, mod_depth = build_ecg_task(
+            seed, start_seconds=0.0, segment_seconds=120
+        )
         if pac_stats is None:
             pac_stats = (value_corr, mod_depth)
             example_task = (u_train, y_train, u_test, y_test)

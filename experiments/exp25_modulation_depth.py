@@ -37,7 +37,7 @@ import numpy as np
 from scipy.ndimage import uniform_filter1d
 from scipy.signal import hilbert
 
-from experiments.exp18_real_signal_ecg import verify_pac as ecg_verify_pac
+from experiments.ecg_utils import verify_pac as ecg_verify_pac
 from experiments.exp24_bandwidth_mapping import blended_wave
 from reservoir_lab.physical import (
     AcousticReservoir,
